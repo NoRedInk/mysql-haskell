@@ -25,7 +25,6 @@
 --     * mySQLTypeLongBlob
 module Database.MySQL.BinLogProtocol.BinLogMeta where
 
-import Control.Applicative
 import Data.Binary.Get
 import Data.Bits
 import Data.Word

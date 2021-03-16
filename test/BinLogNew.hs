@@ -3,7 +3,6 @@
 
 module BinLogNew where
 
-import Control.Applicative
 import Control.Exception
 import Control.Monad
 import Data.Time.Clock.POSIX

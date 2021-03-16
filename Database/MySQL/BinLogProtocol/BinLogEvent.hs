@@ -12,7 +12,6 @@
 -- Binlog event type
 module Database.MySQL.BinLogProtocol.BinLogEvent where
 
-import Control.Applicative
 import Control.Exception (throwIO)
 import Control.Monad
 import Control.Monad.Loops (untilM)

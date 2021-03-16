@@ -3,7 +3,6 @@
 
 module BinaryRow where
 
-import Control.Applicative
 import Control.Exception
 import Control.Monad
 import qualified Data.ByteString as B

@@ -10,7 +10,6 @@
 -- This is an internal module, the 'MySQLConn' type should not directly acessed to user.
 module Database.MySQL.Connection where
 
-import Control.Applicative
 import Control.Exception
   ( Exception,
     SomeException,

@@ -12,7 +12,6 @@
 -- MySQL packet decoder&encoder, and varities utility.
 module Database.MySQL.Protocol.Packet where
 
-import Control.Applicative
 import Control.Exception (Exception (..), throwIO)
 import Data.Binary (Binary (..), encode)
 import Data.Binary.Parser

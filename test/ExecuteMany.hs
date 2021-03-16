@@ -3,7 +3,6 @@
 
 module ExecuteMany where
 
-import Control.Applicative
 import Data.Time.Calendar (fromGregorian)
 import Data.Time.LocalTime (LocalTime (..), TimeOfDay (..))
 import Database.MySQL.Base

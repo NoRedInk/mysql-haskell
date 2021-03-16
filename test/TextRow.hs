@@ -3,7 +3,6 @@
 
 module TextRow where
 
-import Control.Applicative
 import Data.Time.Calendar (fromGregorian)
 import Data.Time.LocalTime (LocalTime (..), TimeOfDay (..))
 import qualified Data.Vector as V

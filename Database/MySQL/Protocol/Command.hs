@@ -12,9 +12,7 @@
 -- Common MySQL commands supports.
 module Database.MySQL.Protocol.Command where
 
-import Control.Applicative
 import Control.Monad
-import qualified Control.Monad.Fail as Fail
 import Data.Binary
 import Data.Binary.Get
 import Data.Binary.Parser
@@ -24,13 +22,8 @@ import qualified Data.ByteString.Lazy as L
 import Database.MySQL.Protocol.MySQLValue
 import Database.MySQL.Protocol.Packet
 
---TODO: orphan instance MonadFail Data.Binary
-instance MonadFail PutM
-
 --------------------------------------------------------------------------------
 --  Commands
-
-instance MonadFail PutM
 
 type StmtID = Word32
 

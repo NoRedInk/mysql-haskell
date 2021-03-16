@@ -33,7 +33,6 @@ module Database.MySQL.Protocol.MySQLValue
 where
 
 import qualified Blaze.Text as Textual
-import Control.Applicative
 import Control.Monad
 import Data.Binary.IEEE754
 import Data.Binary.Parser

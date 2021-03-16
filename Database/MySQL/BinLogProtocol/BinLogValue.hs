@@ -10,9 +10,7 @@
 -- Binlog protocol
 module Database.MySQL.BinLogProtocol.BinLogValue where
 
-import Control.Applicative
 import Data.Binary.Get
-import Data.Binary.IEEE754
 import Data.Binary.Put ()
 import Data.Bits
 import Data.ByteString (ByteString)
