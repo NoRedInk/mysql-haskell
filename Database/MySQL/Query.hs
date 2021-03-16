@@ -1,14 +1,14 @@
 module Database.MySQL.Query where
 
-import           Data.String               (IsString (..))
-import           Control.Exception         (throw, Exception)
-import           Data.Typeable
-import qualified Data.ByteString.Lazy      as L
-import qualified Data.ByteString.Lazy.Char8     as LC
-import qualified Data.ByteString.Builder   as BB
-import           Control.Arrow             (first)
-import           Database.MySQL.Protocol.MySQLValue
-import           Data.Binary.Put
+import Control.Arrow (first)
+import Control.Exception (Exception, throw)
+import Data.Binary.Put
+import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy.Char8 as LC
+import Data.String (IsString (..))
+import Data.Typeable
+import Database.MySQL.Protocol.MySQLValue
 
 -- | Query string type borrowed from @mysql-simple@.
 --
@@ -24,17 +24,16 @@ import           Data.Binary.Put
 -- The underlying type is a 'L.ByteString', and literal Haskell strings
 -- that contain Unicode characters will be correctly transformed to
 -- UTF-8.
---
-newtype Query = Query { fromQuery :: L.ByteString } deriving (Eq, Ord, Typeable)
+newtype Query = Query {fromQuery :: L.ByteString} deriving (Eq, Ord, Typeable)
 
 instance Show Query where
-    show = show . fromQuery
+  show = show . fromQuery
 
 instance Read Query where
-    readsPrec i = fmap (first Query) . readsPrec i
+  readsPrec i = fmap (first Query) . readsPrec i
 
 instance IsString Query where
-    fromString = Query . BB.toLazyByteString . BB.stringUtf8
+  fromString = Query . BB.toLazyByteString . BB.stringUtf8
 
 -- | A type to wrap a query parameter in to allow for single and multi-valued parameters.
 --
@@ -48,33 +47,35 @@ instance IsString Query where
 --
 -- So you can now write a query like this: @ SELECT * FROM test WHERE _id IN (?, 888) @
 -- and use 'Many' 'Param' to fill the hole. There's no equivalent for prepared statement sadly.
---
-data Param = One  MySQLValue
-           | Many [MySQLValue]
+data Param
+  = One MySQLValue
+  | Many [MySQLValue]
 
 -- | A type that may be used as a single parameter to a SQL query. Inspired from @mysql-simple@.
 class QueryParam a where
-    render :: a -> Put
-    -- ^ Prepare a value for substitution into a query string.
+  render :: a -> Put
+  -- ^ Prepare a value for substitution into a query string.
 
 instance QueryParam Param where
-    render (One x)      = putTextField x
-    render (Many [])    = putTextField MySQLNull
-    render (Many (x:[]))= putTextField x
-    render (Many (x:xs))= do putTextField x
-                             mapM_ (\f -> putCharUtf8 ',' >> putTextField f) xs
+  render (One x) = putTextField x
+  render (Many []) = putTextField MySQLNull
+  render (Many (x : [])) = putTextField x
+  render (Many (x : xs)) = do
+    putTextField x
+    mapM_ (\f -> putCharUtf8 ',' >> putTextField f) xs
 
 instance QueryParam MySQLValue where
-    render = putTextField
+  render = putTextField
 
 renderParams :: QueryParam p => Query -> [p] -> Query
 renderParams (Query qry) params =
-    let fragments = LC.split '?' qry
-    in Query . runPut $ merge fragments params
+  let fragments = LC.split '?' qry
+   in Query . runPut $ merge fragments params
   where
-    merge [x]    []     = putLazyByteString x
-    merge (x:xs) (y:ys) = putLazyByteString x >> render y >> merge xs ys
-    merge _     _       = throw WrongParamsCount
+    merge [x] [] = putLazyByteString x
+    merge (x : xs) (y : ys) = putLazyByteString x >> render y >> merge xs ys
+    merge _ _ = throw WrongParamsCount
 
 data WrongParamsCount = WrongParamsCount deriving (Show, Typeable)
+
 instance Exception WrongParamsCount
