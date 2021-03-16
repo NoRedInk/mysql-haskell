@@ -1,13 +1,20 @@
 {-# LANGUAGE NegativeLiterals #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module BinaryRowNew where
+module BinaryRowNew (tests) where
 
 import Data.Time.Calendar (fromGregorian)
 import Data.Time.LocalTime (LocalTime (..), TimeOfDay (..))
 import Database.MySQL.Base
 import qualified System.IO.Streams as Stream
 import Test.Tasty.HUnit
+
+assertWithResults :: MySQLConn -> StmtID -> ([MySQLValue] -> Assertion) -> Assertion
+assertWithResults c stmt assertionFromResult = do
+  (_, is) <- queryStmt c stmt []
+  Just v <- Stream.read is
+  Stream.skipToEof is
+  assertionFromResult v
 
 tests :: MySQLConn -> Assertion
 tests c = do
@@ -23,10 +30,10 @@ tests c = do
       mySQLTypeTime
     ]
 
-  Just v <- Stream.read is
+  Just v' <- Stream.read is
   assertEqual
     "decode NULL values"
-    v
+    v'
     [ MySQLInt32 0,
       MySQLNull,
       MySQLNull,
@@ -35,47 +42,49 @@ tests c = do
 
   Stream.skipToEof is
 
-  execute_
+  _ <-
+    execute_
+      c
+      "UPDATE test_new SET \
+      \__datetime   = '2016-08-08 17:25:59.12'                  ,\
+      \__timestamp  = '2016-08-08 17:25:59.1234'                ,\
+      \__time       = '-199:59:59.123456' WHERE __id=0"
+
+  assertWithResults
     c
-    "UPDATE test_new SET \
-    \__datetime   = '2016-08-08 17:25:59.12'                  ,\
-    \__timestamp  = '2016-08-08 17:25:59.1234'                ,\
-    \__time       = '-199:59:59.123456' WHERE __id=0"
+    selStmt
+    ( \v ->
+        assertEqual
+          "decode binary protocol"
+          v
+          [ MySQLInt32 0,
+            MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+            MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
+            MySQLTime 1 (TimeOfDay 199 59 59.123456)
+          ]
+    )
 
-  (_, is) <- queryStmt c selStmt []
-  Just v <- Stream.read is
+  _ <-
+    execute_
+      c
+      "UPDATE test_new SET \
+      \__datetime   = '2016-08-08 17:25:59.1'                  ,\
+      \__timestamp  = '2016-08-08 17:25:59.12'                ,\
+      \__time       = '199:59:59.123' WHERE __id=0"
 
-  assertEqual
-    "decode binary protocol"
-    v
-    [ MySQLInt32 0,
-      MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
-      MySQLTime 1 (TimeOfDay 199 59 59.123456)
-    ]
-
-  Stream.skipToEof is
-
-  execute_
+  assertWithResults
     c
-    "UPDATE test_new SET \
-    \__datetime   = '2016-08-08 17:25:59.1'                  ,\
-    \__timestamp  = '2016-08-08 17:25:59.12'                ,\
-    \__time       = '199:59:59.123' WHERE __id=0"
-
-  (_, is) <- queryStmt c selStmt []
-  Just v <- Stream.read is
-
-  assertEqual
-    "decode binary protocol 2"
-    v
-    [ MySQLInt32 0,
-      MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTime 0 (TimeOfDay 199 59 59.123)
-    ]
-
-  Stream.skipToEof is
+    selStmt
+    ( \v ->
+        assertEqual
+          "decode binary protocol 2"
+          v
+          [ MySQLInt32 0,
+            MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
+            MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+            MySQLTime 0 (TimeOfDay 199 59 59.123)
+          ]
+    )
 
   updStmt <-
     prepareStmt
@@ -85,46 +94,48 @@ tests c = do
       \__timestamp  = ?     ,\
       \__time       = ? WHERE __id=0"
 
-  executeStmt
+  _ <-
+    executeStmt
+      c
+      updStmt
+      [ MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+        MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
+        MySQLTime 1 (TimeOfDay 199 59 59.123456)
+      ]
+
+  assertWithResults
     c
-    updStmt
-    [ MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
-      MySQLTime 1 (TimeOfDay 199 59 59.123456)
-    ]
+    selStmt
+    ( \v ->
+        assertEqual
+          "roundtrip binary protocol"
+          v
+          [ MySQLInt32 0,
+            MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+            MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
+            MySQLTime 1 (TimeOfDay 199 59 59.123456)
+          ]
+    )
 
-  (_, is) <- queryStmt c selStmt []
-  Just v <- Stream.read is
+  _ <-
+    executeStmt
+      c
+      updStmt
+      [ MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
+        MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+        MySQLTime 0 (TimeOfDay 199 59 59.1234)
+      ]
 
-  assertEqual
-    "roundtrip binary protocol"
-    v
-    [ MySQLInt32 0,
-      MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
-      MySQLTime 1 (TimeOfDay 199 59 59.123456)
-    ]
-
-  Stream.skipToEof is
-
-  executeStmt
+  assertWithResults
     c
-    updStmt
-    [ MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTime 0 (TimeOfDay 199 59 59.1234)
-    ]
-
-  (_, is) <- queryStmt c selStmt []
-  Just v <- Stream.read is
-
-  assertEqual
-    "roundtrip binary protocol 2"
-    v
-    [ MySQLInt32 0,
-      MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTime 0 (TimeOfDay 199 59 59.1234)
-    ]
-
-  Stream.skipToEof is
+    selStmt
+    ( \v ->
+        assertEqual
+          "roundtrip binary protocol 2"
+          v
+          [ MySQLInt32 0,
+            MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
+            MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+            MySQLTime 0 (TimeOfDay 199 59 59.1234)
+          ]
+    )

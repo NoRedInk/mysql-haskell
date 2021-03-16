@@ -1,13 +1,20 @@
 {-# LANGUAGE NegativeLiterals #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module TextRowNew where
+module TextRowNew (tests) where
 
 import Data.Time.Calendar (fromGregorian)
 import Data.Time.LocalTime (LocalTime (..), TimeOfDay (..))
 import Database.MySQL.Base
 import qualified System.IO.Streams as Stream
 import Test.Tasty.HUnit
+
+assertWithResults :: MySQLConn -> Query -> ([MySQLValue] -> Assertion) -> Assertion
+assertWithResults c queryStr assertionFromResult = do
+  (_, is) <- query_ c queryStr
+  Just v <- Stream.read is
+  Stream.skipToEof is
+  assertionFromResult v
 
 tests :: MySQLConn -> Assertion
 tests c = do
@@ -22,109 +29,111 @@ tests c = do
       mySQLTypeTime
     ]
 
-  Just v <- Stream.read is
+  Just v' <- Stream.read is
   assertEqual
     "decode NULL values"
-    v
+    v'
     [ MySQLInt32 0,
       MySQLNull,
       MySQLNull,
       MySQLNull
     ]
 
-  Stream.skipToEof is
+  _ <-
+    execute_
+      c
+      "UPDATE test_new SET \
+      \__datetime   = '2016-08-08 17:25:59.12'                  ,\
+      \__timestamp  = '2016-08-08 17:25:59.1234'                ,\
+      \__time       = '-199:59:59.123456' WHERE __id=0"
 
-  execute_
+  assertWithResults
     c
-    "UPDATE test_new SET \
-    \__datetime   = '2016-08-08 17:25:59.12'                  ,\
-    \__timestamp  = '2016-08-08 17:25:59.1234'                ,\
-    \__time       = '-199:59:59.123456' WHERE __id=0"
+    "SELECT * FROM test_new"
+    ( \v ->
+        assertEqual
+          "decode text protocol"
+          v
+          [ MySQLInt32 0,
+            MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+            MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
+            MySQLTime 1 (TimeOfDay 199 59 59.123456)
+          ]
+    )
 
-  (_, is) <- query_ c "SELECT * FROM test_new"
-  Just v <- Stream.read is
+  _ <-
+    execute_
+      c
+      "UPDATE test_new SET \
+      \__datetime   = '2016-08-08 17:25:59.1'                  ,\
+      \__timestamp  = '2016-08-08 17:25:59.12'                ,\
+      \__time       = '199:59:59.1234' WHERE __id=0"
 
-  assertEqual
-    "decode text protocol"
-    v
-    [ MySQLInt32 0,
-      MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
-      MySQLTime 1 (TimeOfDay 199 59 59.123456)
-    ]
-
-  Stream.skipToEof is
-
-  execute_
+  assertWithResults
     c
-    "UPDATE test_new SET \
-    \__datetime   = '2016-08-08 17:25:59.1'                  ,\
-    \__timestamp  = '2016-08-08 17:25:59.12'                ,\
-    \__time       = '199:59:59.1234' WHERE __id=0"
+    "SELECT * FROM test_new"
+    ( \v ->
+        assertEqual
+          "decode text protocol 2"
+          v
+          [ MySQLInt32 0,
+            MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
+            MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+            MySQLTime 0 (TimeOfDay 199 59 59.1234)
+          ]
+    )
 
-  (_, is) <- query_ c "SELECT * FROM test_new"
-  Just v <- Stream.read is
+  _ <-
+    execute
+      c
+      "UPDATE test_new SET \
+      \__datetime   = ?     ,\
+      \__timestamp  = ?     ,\
+      \__time       = ?  WHERE __id=0"
+      [ MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+        MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
+        MySQLTime 1 (TimeOfDay 199 59 59.123456)
+      ]
 
-  assertEqual
-    "decode text protocol 2"
-    v
-    [ MySQLInt32 0,
-      MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTime 0 (TimeOfDay 199 59 59.1234)
-    ]
-
-  Stream.skipToEof is
-
-  execute
+  assertWithResults
     c
-    "UPDATE test_new SET \
-    \__datetime   = ?     ,\
-    \__timestamp  = ?     ,\
-    \__time       = ?  WHERE __id=0"
-    [ MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
-      MySQLTime 1 (TimeOfDay 199 59 59.123456)
-    ]
+    "SELECT * FROM test_new"
+    ( \v ->
+        assertEqual
+          "roundtrip text protocol"
+          v
+          [ MySQLInt32 0,
+            MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+            MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
+            MySQLTime 1 (TimeOfDay 199 59 59.123456)
+          ]
+    )
 
-  (_, is) <- query_ c "SELECT * FROM test_new"
-  Just v <- Stream.read is
+  _ <-
+    execute
+      c
+      "UPDATE test_new SET \
+      \__datetime   = ?     ,\
+      \__timestamp  = ?     ,\
+      \__time       = ?  WHERE __id=0"
+      [ MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
+        MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+        MySQLTime 0 (TimeOfDay 199 59 59.1234)
+      ]
 
-  assertEqual
-    "roundtrip text protocol"
-    v
-    [ MySQLInt32 0,
-      MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1234)),
-      MySQLTime 1 (TimeOfDay 199 59 59.123456)
-    ]
-
-  Stream.skipToEof is
-
-  execute
+  assertWithResults
     c
-    "UPDATE test_new SET \
-    \__datetime   = ?     ,\
-    \__timestamp  = ?     ,\
-    \__time       = ?  WHERE __id=0"
-    [ MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTime 0 (TimeOfDay 199 59 59.1234)
-    ]
-
-  (_, is) <- query_ c "SELECT * FROM test_new"
-  Just v <- Stream.read is
-
-  assertEqual
-    "roundtrip text protocol 2"
-    v
-    [ MySQLInt32 0,
-      MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
-      MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
-      MySQLTime 0 (TimeOfDay 199 59 59.1234)
-    ]
-
-  Stream.skipToEof is
+    "SELECT * FROM test_new"
+    ( \v ->
+        assertEqual
+          "roundtrip text protocol 2"
+          v
+          [ MySQLInt32 0,
+            MySQLDateTime (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.1)),
+            MySQLTimeStamp (LocalTime (fromGregorian 2016 08 08) (TimeOfDay 17 25 59.12)),
+            MySQLTime 0 (TimeOfDay 199 59 59.1234)
+          ]
+    )
 
   let row0 =
         [ MySQLInt32 0,
@@ -138,31 +147,33 @@ tests c = do
           MySQLTimeStamp (LocalTime (fromGregorian 2016 08 09) (TimeOfDay 18 25 59.12)),
           MySQLTime 0 (TimeOfDay 299 59 59.1234)
         ]
-  execute
-    c
-    "UPDATE test_new SET \
-    \__id         = ?     ,\
-    \__datetime   = ?     ,\
-    \__timestamp  = ?     ,\
-    \__time       = ?  WHERE __id=0"
-    row0
-  execute
-    c
-    "INSERT INTO test_new VALUES(\
-    \?,\
-    \?,\
-    \?,\
-    \? \
-    \)"
-    row1
+  _ <-
+    execute
+      c
+      "UPDATE test_new SET \
+      \__id         = ?     ,\
+      \__datetime   = ?     ,\
+      \__timestamp  = ?     ,\
+      \__time       = ?  WHERE __id=0"
+      row0
+  _ <-
+    execute
+      c
+      "INSERT INTO test_new VALUES(\
+      \?,\
+      \?,\
+      \?,\
+      \? \
+      \)"
+      row1
 
-  (_, is) <- query c "SELECT * FROM test_new WHERE __id IN (?) ORDER BY __id" [Many [MySQLInt32 0, MySQLInt32 1]]
-  Just v0 <- Stream.read is
-  Just v1 <- Stream.read is
+  (_, is') <- query c "SELECT * FROM test_new WHERE __id IN (?) ORDER BY __id" [Many [MySQLInt32 0, MySQLInt32 1]]
+  Just v0 <- Stream.read is'
+  Just v1 <- Stream.read is'
 
   assertEqual "select list of ids" [v0, v1] [row0, row1]
 
-  Stream.skipToEof is
-  execute_ c "DELETE FROM test_new where __id=1"
+  Stream.skipToEof is'
+  _ <- execute_ c "DELETE FROM test_new where __id=1"
 
   return ()
