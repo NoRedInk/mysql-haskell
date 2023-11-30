@@ -32,6 +32,7 @@ library
                     ,   Database.MySQL.BinLogProtocol.BinLogValue
                     ,   Database.MySQL.BinLogProtocol.BinLogMeta
                     ,   Database.MySQL.Connection
+                    ,   Database.MySQL.Unix
     other-modules:      Database.MySQL.Query
     build-depends:      base          >= 4.7 && < 5
                     ,   monad-loops   == 0.4.*
