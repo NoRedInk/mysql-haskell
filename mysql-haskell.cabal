@@ -33,9 +33,12 @@ library
                     ,   Database.MySQL.BinLogProtocol.BinLogMeta
                     ,   Database.MySQL.Connection
                     ,   Database.MySQL.Unix
-    other-modules:      Database.MySQL.Query
+    other-modules:      Data.Binary.Parser
+                    ,   Data.Binary.Parser.Numeric
+                    ,   Data.Binary.Parser.Word8
                     ,   Data.Int.Int24
                     ,   Data.Word.Word24
+                    ,   Database.MySQL.Query
     build-depends:      base          >= 4.7 && < 5
                     ,   deepseq       >= 1.4.6 && < 1.6.0
                     ,   monad-loops   == 0.4.*
@@ -45,7 +48,6 @@ library
                     ,   wire-streams  >= 0.1
                     ,   binary        >= 0.8.3
                     ,   binary-ieee754
-                    ,   binary-parsers >= 0.2.1
                     ,   bytestring    >= 0.10.2.0
                     ,   text          >= 1.1 && < 1.3
                     ,   cryptonite    == 0.*
