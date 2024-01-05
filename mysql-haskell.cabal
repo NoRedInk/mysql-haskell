@@ -49,7 +49,7 @@ library
                     ,   binary        >= 0.8.3
                     ,   binary-ieee754
                     ,   bytestring    >= 0.10.2.0
-                    ,   text          >= 1.1 && < 1.3
+                    ,   text          >= 1.1 && < 2.2
                     ,   cryptonite    == 0.*
                     ,   memory        >= 0.14.4 && < 0.19
                     ,   time          >= 1.5.0
